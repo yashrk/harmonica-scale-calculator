@@ -1,10 +1,11 @@
-module App exposing (..)
+module Main exposing (..)
 
-import Dict exposing (..)
-import Html exposing (..)
+import Dict exposing ( Dict, fromList, get, toList )
+import Html exposing ( Html, div, option, p, select, text)
 import Html.Attributes exposing ( value, selected )
 import Html.Events exposing ( onInput )
 import List.Extra exposing ( cycle, zip )
+import Set exposing ( Set, fromList, member)
 import String exposing ( toInt )
 import Svg exposing ( Svg, g, rect, svg, text_ )
 import Svg.Attributes exposing (..)
@@ -29,9 +30,19 @@ type alias Shift =
   , accidental: Accidental
   }
 
+type alias Tonality =
+  Dict Int String
+
+type alias Mode =
+  List Int
+
+type alias Scale =
+  Set String
+
 type alias Model =
   { tonality: Shift
   , harp: Shift
+  , mode: Mode
   }
 
 chromaticSharp : List String
@@ -48,7 +59,7 @@ flatTonalities = [ 0, 1, 3, 5, 6, 8, 10 ] -- Shift to C, D♭, E♭, F, G♭, A�
 
 tonalityType : Int -> Accidental
 tonalityType shift =
-  if List.any (\x -> x == shift) sharpTonalities
+  if List.member shift sharpTonalities
   then Sharp
   else Flat
 
@@ -58,7 +69,7 @@ accidentalType shift =
   then shift.accidental
   else tonalityType shift.value
 
-tonalitySharp : Int -> Dict Int String
+tonalitySharp : Int -> Tonality
 tonalitySharp shiftValue =
   cycle 24 chromaticSharp
     |> List.drop shiftValue
@@ -66,7 +77,7 @@ tonalitySharp shiftValue =
     |> List.Extra.zip (List.range 1 12)
     |> Dict.fromList
 
-tonalityFlat : Int -> Dict Int String
+tonalityFlat : Int -> Tonality
 tonalityFlat shiftValue =
   cycle 24 chromaticFlat
     |> List.drop shiftValue
@@ -74,20 +85,37 @@ tonalityFlat shiftValue =
     |> List.Extra.zip (List.range 1 12)
     |> Dict.fromList
 
-tonality : Shift -> Dict Int String
+tonality : Shift -> Tonality
 tonality shift =
   let accidental = (accidentalType shift) in
   case accidental of
     Sharp -> tonalitySharp shift.value
-    _ ->  tonalityFlat shift.value
+    _ -> tonalityFlat shift.value
 
-degreeToNote : Int -> Dict Int String -> String
+degreeToNote : Int -> Tonality -> String
 degreeToNote degree curTonality =
   Maybe.withDefault "" (Dict.get degree curTonality)
 
+naturalMajorMode : Mode
+naturalMajorMode = [ 1, 3, 5, 6, 8, 10, 12 ]
+
+pentatonicMode : Mode
+pentatonicMode = [ 1, 3, 5, 8, 10 ]
+
+majorBluesMode : Mode
+majorBluesMode = [ 1, 3, 4, 5, 8, 10 ]
+
+scale : Shift -> Mode -> Shift -> Scale
+scale shift mode curHarp =
+  tonality (Shift shift.value curHarp.accidental)
+    |> Dict.toList
+    |> List.filter (\ (n, _) -> List.member n mode)
+    |> List.map (\ (_, x) -> x)
+    |> Set.fromList
+
 init : (Model, Cmd Msg)
 init =
-  ((Model (Shift 0 Natural) (Shift 0 Natural)), Cmd.none)
+  ((Model (Shift 0 Natural) (Shift 0 Natural) naturalMajorMode), Cmd.none)
 
 -- VIEW
 
@@ -102,14 +130,14 @@ layout =
   , [ 0, 0, 9,  0, 0, 0,  0,  0, 0, 0  ]
   ]
 
-drawHole : String -> Int -> Int -> Svg Msg
-drawHole note hx hy =
+drawHole : String -> Int -> Int -> Scale -> Svg Msg
+drawHole note hx hy scale =
   g []
     [ rect [ x (toString (hx * 50))
            , y (toString (hy * 50))
            , width "50"
            , height "50"
-           , fill "none"
+           , fill (if Set.member note scale then "#00ff00" else "none")
            , stroke "black"
            , strokeWidth "3px"
            ] []
@@ -121,28 +149,30 @@ drawHole note hx hy =
             ] [ Html.text note ]
     ]
 
-drawRow : List Int -> Int -> Dict Int String -> Svg Msg
-drawRow row rowNumber curTonality =
+drawRow : List Int -> Int -> Tonality -> Scale -> Svg Msg
+drawRow row rowNumber curHarpTonality curScale =
   g []
     (List.Extra.zip row (List.range 0 10)
        |> List.filter (\ (degree, _) ->
                          degree /= 0)
        |> List.map (\ (degree, column) ->
-                      drawHole (degreeToNote degree curTonality) column rowNumber))
+                      drawHole (degreeToNote degree curHarpTonality) column rowNumber curScale))
 
-drawLayout : List (List Int) -> Dict Int String -> Svg Msg
-drawLayout layout curTonality =
+drawLayout : List (List Int) -> Tonality -> Scale -> Svg Msg
+drawLayout layout curHarpTonality curScale =
   g []
     (List.Extra.zip layout (List.range 0 7)
        |> List.map (\ (row, rowNumber) ->
-                      drawRow row rowNumber curTonality))
+                      drawRow row rowNumber curHarpTonality curScale))
 
 view : Model -> Html Msg
 view model =
   div []
     [ div []
         [ svg [ viewBox "0 0 500 380", width "500px" ]
-            [ (drawLayout layout (tonality model.harp))
+            [ (drawLayout layout
+                          (tonality model.harp)
+                          (scale model.tonality model.mode model.harp))
             ]
         ]
     , div []
@@ -164,6 +194,15 @@ view model =
                      [Html.text "♮"]
             , option [value "Sharp", selected (model.tonality.accidental == Sharp)]
                      [Html.text "♯"]
+            ]
+        , select [ onInput ModeUpdate ]
+            [ option [value "Natural major"]
+                     [Html.text "Natural major"]
+            , option [value "Pentatonic"]
+                     [Html.text "Pentatonic"]
+            , option [value "Major blues"]
+                       [Html.text "Major blues"]
+
             ]
         ]
     , div []
@@ -194,6 +233,7 @@ view model =
 type Msg
   = HarpUpdate String
   | HarpAccUpdate String
+  | ModeUpdate String
   | TonicUpdate String
   | TonicAccUpdate String
 
@@ -201,8 +241,8 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     HarpUpdate newHarp ->
-      Result.withDefault 1 (toInt newHarp)
-      |> (\t -> ( { model | harp = (Shift t model.harp.accidental) }, Cmd.none))
+      Result.withDefault 0 (toInt newHarp)
+      |> (\t -> ({ model | harp = (Shift t model.harp.accidental) }, Cmd.none))
     HarpAccUpdate newAccStr ->
       let newAcc = case newAccStr of
                      "Flat" -> Flat
@@ -210,10 +250,24 @@ update msg model =
                      _ -> Natural
       in
         ({ model | harp = (Shift model.harp.value newAcc)}, Cmd.none)
+    ModeUpdate newModeStr ->
+      let newMode = case newModeStr of
+                      "Pentatonic" -> pentatonicMode
+                      "Major blues" -> majorBluesMode
+                      _ -> naturalMajorMode
+
+      in
+      ({model | mode = newMode }, Cmd.none)
     TonicUpdate newTonic ->
-      (model, Cmd.none)
-    TonicAccUpdate _ ->
-      (model, Cmd.none)
+      Result.withDefault 0 (toInt newTonic)
+      |> (\t -> ({ model | tonality = (Shift t model.tonality.accidental) }, Cmd.none))
+    TonicAccUpdate newAccStr ->
+      let newAcc = case newAccStr of
+                     "Flat" -> Flat
+                     "Sharp" -> Sharp
+                     _ -> Natural
+      in
+        ({ model | tonality = (Shift model.tonality.value newAcc)}, Cmd.none)
 
 
 -- SUBSCRIPTIONS
