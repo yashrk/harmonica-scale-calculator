@@ -1,7 +1,12 @@
+module App exposing (..)
+
 import Dict exposing (..)
 import Html exposing (..)
-import List.Extra exposing (..)
-import Svg exposing (..)
+import Html.Attributes exposing ( value, selected )
+import Html.Events exposing ( onInput )
+import List.Extra exposing ( cycle, zip )
+import String exposing ( toInt )
+import Svg exposing ( Svg, g, rect, svg, text_ )
 import Svg.Attributes exposing (..)
 
 main =
@@ -16,6 +21,7 @@ main =
 
 type Accidental
   = Sharp
+  | Natural
   | Flat
 
 type alias Shift =
@@ -24,33 +30,56 @@ type alias Shift =
   }
 
 type alias Model =
-  ()
+  { tonality: Shift
+  , harp: Shift
+  }
 
 chromaticSharp : List String
-chromaticSharp = [ "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "h" ]
+chromaticSharp = [ "c", "c♯", "d", "d♯", "e", "f", "f♯", "g", "g♯", "a", "a♯", "h" ]
 
 chromaticFlat : List String
 chromaticFlat =  [ "c", "d♭", "d", "e♭", "e", "f", "g♭", "g", "a♭", "a", "b", "h" ]
 
+sharpTonalities : List Int
+sharpTonalities = [ 2, 4, 7, 9, 11 ] -- Shift to D, E, G, A, H
+
+flatTonalities : List Int
+flatTonalities = [ 0, 1, 3, 5, 6, 8, 10 ] -- Shift to C, D♭, E♭, F, G♭, A♭, B
+
+tonalityType : Int -> Accidental
+tonalityType shift =
+  if List.any (\x -> x == shift) sharpTonalities
+  then Sharp
+  else Flat
+
+accidentalType : Shift -> Accidental
+accidentalType shift =
+  if shift.accidental /= Natural
+  then shift.accidental
+  else tonalityType shift.value
+
 tonalitySharp : Int -> Dict Int String
-tonalitySharp shift =
-  List.Extra.zip (List.range 1 13) (cycle 24 chromaticSharp)
-    |> List.drop shift
+tonalitySharp shiftValue =
+  cycle 24 chromaticSharp
+    |> List.drop shiftValue
     |> List.take 12
+    |> List.Extra.zip (List.range 1 12)
     |> Dict.fromList
 
 tonalityFlat : Int -> Dict Int String
-tonalityFlat shift =
-  List.Extra.zip (List.range 1 13) (cycle 24 chromaticFlat)
-    |> List.drop shift
+tonalityFlat shiftValue =
+  cycle 24 chromaticFlat
+    |> List.drop shiftValue
     |> List.take 12
+    |> List.Extra.zip (List.range 1 12)
     |> Dict.fromList
 
 tonality : Shift -> Dict Int String
 tonality shift =
-  case shift.accidental of
+  let accidental = (accidentalType shift) in
+  case accidental of
     Sharp -> tonalitySharp shift.value
-    Flat ->  tonalityFlat shift.value
+    _ ->  tonalityFlat shift.value
 
 degreeToNote : Int -> Dict Int String -> String
 degreeToNote degree curTonality =
@@ -58,7 +87,7 @@ degreeToNote degree curTonality =
 
 init : (Model, Cmd Msg)
 init =
-  ((), Cmd.none)
+  ((Model (Shift 0 Natural) (Shift 0 Natural)), Cmd.none)
 
 -- VIEW
 
@@ -112,24 +141,78 @@ view : Model -> Html Msg
 view model =
   div []
     [ div []
-        [ svg [ viewBox "0 0 500 500", width "500px" ]
-            [ (drawLayout layout (tonality (Shift 0 Flat)))
+        [ svg [ viewBox "0 0 500 380", width "500px" ]
+            [ (drawLayout layout (tonality model.harp))
             ]
         ]
     , div []
-        [
+        [ p [] [ text "Tonality" ]
+        , select [ onInput TonicUpdate ]
+            [ option [value "0"]  [Html.text "C"]
+            , option [value "2"]  [Html.text "D"]
+            , option [value "4"]  [Html.text "E"]
+            , option [value "5"]  [Html.text "F"]
+            , option [value "7"]  [Html.text "G"]
+            , option [value "9"]  [Html.text "A"]
+            , option [value "10"] [Html.text "B"]
+            , option [value "11"] [Html.text "H"]
+            ]
+        , select [ onInput TonicAccUpdate ]
+            [ option [value "Flat", selected (model.tonality.accidental == Flat)]
+                     [Html.text "♭"]
+            , option [value "Natural", selected (model.tonality.accidental == Natural)]
+                     [Html.text "♮"]
+            , option [value "Sharp", selected (model.tonality.accidental == Sharp)]
+                     [Html.text "♯"]
+            ]
+        ]
+    , div []
+        [ p [] [ text "Harp" ]
+        , select [ onInput HarpUpdate ]
+            [ option [value "0"]  [Html.text "C"]
+            , option [value "2"]  [Html.text "D"]
+            , option [value "4"]  [Html.text "E"]
+            , option [value "5"]  [Html.text "F"]
+            , option [value "7"]  [Html.text "G"]
+            , option [value "9"]  [Html.text "A"]
+            , option [value "10"] [Html.text "B"]
+            , option [value "11"] [Html.text "H"]
+            ]
+        , select [ onInput HarpAccUpdate ]
+            [ option [value "Flat", selected (model.harp.accidental == Flat)]
+                     [Html.text "♭"]
+            , option [value "Natural", selected (model.harp.accidental == Natural)]
+                     [Html.text "♮"]
+            , option [value "Sharp", selected (model.harp.accidental == Sharp)]
+                     [Html.text "♯"]
+            ]
         ]
     ]
 
 -- UPDATE
 
-type Msg =
-  None
+type Msg
+  = HarpUpdate String
+  | HarpAccUpdate String
+  | TonicUpdate String
+  | TonicAccUpdate String
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    None ->
+    HarpUpdate newHarp ->
+      Result.withDefault 1 (toInt newHarp)
+      |> (\t -> ( { model | harp = (Shift t model.harp.accidental) }, Cmd.none))
+    HarpAccUpdate newAccStr ->
+      let newAcc = case newAccStr of
+                     "Flat" -> Flat
+                     "Sharp" -> Sharp
+                     _ -> Natural
+      in
+        ({ model | harp = (Shift model.harp.value newAcc)}, Cmd.none)
+    TonicUpdate newTonic ->
+      (model, Cmd.none)
+    TonicAccUpdate _ ->
       (model, Cmd.none)
 
 
