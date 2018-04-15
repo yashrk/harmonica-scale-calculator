@@ -2,6 +2,8 @@
 
 This program generates scale charts of different scales (natural, blues, pentatonic etc.) for given harp.
 
+![Harmonica Scale Calculator screenshot](https://yashrk.github.io/images/harmonica-scale-calculator.png)
+
 ## Working sample
 
 [Try it at yashrk.github.io](https://yashrk.github.io/harmonica-scales.html)
