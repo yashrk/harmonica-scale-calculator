@@ -1,4 +1,4 @@
-module Main exposing (..)
+module App exposing (..)
 
 import Dict exposing ( Dict, fromList, get, toList )
 import Html exposing ( Html, div, option, p, select, text)
@@ -105,12 +105,29 @@ pentatonicMode = [ 1, 3, 5, 8, 10 ]
 majorBluesMode : Mode
 majorBluesMode = [ 1, 3, 4, 5, 8, 10 ]
 
-scale : Shift -> Mode -> Shift -> Scale
-scale shift mode curHarp =
-  tonality (Shift shift.value curHarp.accidental)
+enharmonicEquivalents : Dict String String
+enharmonicEquivalents =
+  zip chromaticFlat chromaticSharp ++ zip chromaticSharp chromaticFlat
+    |> List.filter (\ (a, b) -> a /= b)
+    |> Dict.fromList
+
+addEquivalents : List String -> List String
+addEquivalents notes =
+  let eqv = List.foldl (\note acc -> case (Dict.get note enharmonicEquivalents) of
+                                       Just e -> e :: acc
+                                       Nothing -> acc)
+            []
+            notes
+  in
+    notes ++ eqv
+
+scale : Shift -> Mode -> Scale
+scale shift mode =
+  tonality shift
     |> Dict.toList
     |> List.filter (\ (n, _) -> List.member n mode)
     |> List.map (\ (_, x) -> x)
+    |> addEquivalents
     |> Set.fromList
 
 init : (Model, Cmd Msg)
@@ -172,7 +189,7 @@ view model =
         [ svg [ viewBox "0 0 500 380", width "500px" ]
             [ (drawLayout layout
                           (tonality model.harp)
-                          (scale model.tonality model.mode model.harp))
+                          (scale model.tonality model.mode))
             ]
         ]
     , div []
