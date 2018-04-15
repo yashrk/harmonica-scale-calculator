@@ -24,7 +24,7 @@ Run the following:
 ```
 elm make App.elm --output harmonica-scales.html
 ```
-and copy `harmonica-scales.html` to your site. No backend logic needed. Please observe AGPL if you are using or improve this code. Let me know if you like my application.
+and copy `harmonica-scales.html` to your site. No backend logic needed. Please observe AGPL if you use or improve this code. Let me know if you like my application.
 
 ## How to embed it to your web page
 
