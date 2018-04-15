@@ -1,8 +1,8 @@
 module App exposing (..)
 
 import Dict exposing ( Dict, fromList, get, toList )
-import Html exposing ( Html, div, option, p, select, text)
-import Html.Attributes exposing ( value, selected )
+import Html exposing ( Html, a, div, img, option, p, select, text)
+import Html.Attributes exposing ( alt, href, selected, src, value )
 import Html.Events exposing ( onInput )
 import List.Extra exposing ( cycle, zip )
 import Set exposing ( Set, fromList, member)
@@ -196,7 +196,7 @@ view model =
             ]
         ]
     , div []
-        [ p [] [ text "Tonality" ]
+        [ p [] [ text "Scale" ]
         , select [ onInput TonicUpdate ]
             [ option [value "0"]  [Html.text "C"]
             , option [value "2"]  [Html.text "D"]
@@ -248,6 +248,23 @@ view model =
                      [Html.text "♯"]
             ]
         ]
+      , div []
+          [ p [] [ text "ⓒYuriy Shirokov ("
+                 , a [ href "https://github.com/yashrk" ] [ Html.text "github.com/yashrk" ]
+                 , text "), 2018"
+                 ]
+          , p [] [ text "Source code: "
+                 , a [ href "https://github.com/yashrk/harmonica-scale-calculator" ]
+                     [ Html.text "github.com/yashrk/harmonica-scale-calculator" ]
+                 ]
+          , p [] [ text "License: "
+                 , a [ href "https://www.gnu.org/licenses/agpl.html" ]
+                     [ Html.text "AGPLv3" ]
+                 ]
+          , p [] [ a [ href "https://www.gnu.org/licenses/agpl.html" ]
+                     [img [ src "https://yashrk.github.io/images/agplv3.png", alt "AGPLv3" ] []]
+                 ]
+          ]
     ]
 
 -- UPDATE

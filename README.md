@@ -49,4 +49,7 @@ Please note you are accepting [GNU AGPL v.3](https://www.gnu.org/licenses/agpl-3
 
 ## License
 
+![AGPLv3](https://yashrk.github.io/images/agplv3.png)
+
 This project is licensed under the GNU Affero General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+
