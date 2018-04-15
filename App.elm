@@ -102,6 +102,9 @@ naturalMajorMode = [ 1, 3, 5, 6, 8, 10, 12 ]
 pentatonicMode : Mode
 pentatonicMode = [ 1, 3, 5, 8, 10 ]
 
+bluesMode : Mode
+bluesMode = [ 1, 4, 6, 7, 8, 11 ]
+
 majorBluesMode : Mode
 majorBluesMode = [ 1, 3, 4, 5, 8, 10 ]
 
@@ -217,8 +220,10 @@ view model =
                      [Html.text "Natural major"]
             , option [value "Pentatonic"]
                      [Html.text "Pentatonic"]
+            , option [value "Blues"]
+                     [Html.text "Blues"]
             , option [value "Major blues"]
-                       [Html.text "Major blues"]
+                     [Html.text "Major blues"]
 
             ]
         ]
@@ -270,6 +275,7 @@ update msg model =
     ModeUpdate newModeStr ->
       let newMode = case newModeStr of
                       "Pentatonic" -> pentatonicMode
+                      "Blues" -> bluesMode
                       "Major blues" -> majorBluesMode
                       _ -> naturalMajorMode
 
